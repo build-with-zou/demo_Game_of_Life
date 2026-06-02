@@ -1,0 +1,4 @@
+{
+  "notes": "请将raylib.compilerPath的路径替换为从canvas下载到本地的编译器路径（注意是g++.exe的路径）",
+  "raylib.compilerPath": "D:/Undergraduate_Study/2026Spring/cpp/homework/challenge1/raylib_w64devkit/bin/g++.exe",
+}

@@ -1,0 +1,15 @@
+{
+  "configurations": [
+    {
+      "name": "Win32",
+      "includePath": [
+        "${workspaceFolder}/**"
+      ],
+      "defines": ["PLATFORM_DESKTOP"],
+      "compilerPath": "${config:raylib.compilerPath}",
+      "cStandard": "c17",
+      "cppStandard": "c++11"
+    }
+  ],
+  "version": 4
+}

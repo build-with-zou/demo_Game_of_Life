@@ -1,0 +1,33 @@
+{
+  "tasks": [
+    {
+      "type": "shell",
+      "label": "compile",
+      "command": "${config:raylib.compilerPath}",
+      "args": [
+        "-o",
+        "${fileDirname}/main",
+        "${file}",
+        "-I", "includes/",
+        "-l", "raylib",
+        "-l", "gdi32",
+        "-l", "winmm",
+        "-s",
+      ],
+      "options": {
+        "cwd": "${fileDirname}"
+      },
+      "group": "build",
+    },
+    {
+      "label": "build and run raylib project",
+      "type": "shell",
+      "command": "${fileDirname}/main",
+      "options": { "cwd": "${fileDirname}" },
+      "dependsOn": ["compile"],
+      "dependsOrder": "sequence",
+      "problemMatcher": []
+    }
+  ],
+  "version": "2.0.0"
+}
