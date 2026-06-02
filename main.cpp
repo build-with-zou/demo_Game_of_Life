@@ -2,7 +2,7 @@
 #include "raylib.h"
 
 #define RAYGUI_IMPLEMENTATION
-#include "raygui.h"                 // Required for GUI controls
+#include "raygui.h"
 
 #include <iostream>
 #include <string>
@@ -13,91 +13,129 @@
 
 using namespace std;
 
-int main(){
-    const int screenWidth = 1200;
+int main() {
+    const int screenWidth = 1300;
     const int screenHeight = 1000;
     InitWindow(screenWidth, screenHeight, "Game of Life");
-    GuiSetStyle(DEFAULT, TEXT_SIZE, 20);   // 将默认字体大小设为 20（默认是 10）
-    float cellSize = 10;
-    int gridWidth = screenWidth / cellSize;
-    int gridHeight = screenHeight / cellSize;
-    vector<vector<bool>> grid(gridHeight, vector<bool>(gridWidth, false)); // 一开始所有的细胞都是死的
-    bool isRunning = false; // 游戏是否在运行
-    SetTargetFPS(60); // 设置帧率
+    GuiSetStyle(DEFAULT, TEXT_SIZE, 20);   // 放大字体
 
-    while (!WindowShouldClose()){
-        // 处理输入
-        if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)){
+    // 右侧面板区域设置（固定大小，紧贴右边缘）
+    const int panelWidth = 220;
+    const int panelMargin = 10;
+    const int panelX = screenWidth - panelWidth - panelMargin;
+    const int panelY = panelMargin;
+    const int panelHeight = 150;
+
+    // 网格可用宽度 = 面板左侧所有区域
+    const int gridAreaWidth = panelX;  // 从0到panelX
+
+    float cellSize = 10;
+    int gridWidth = gridAreaWidth / cellSize;
+    int gridHeight = screenHeight / cellSize;
+    vector<vector<bool>> grid(gridHeight, vector<bool>(gridWidth, false));
+    bool isRunning = false;
+    float updateDelay = 100.0f; // 毫秒
+    float lastCellSize = cellSize;
+    double lastUpdateTime = 0;
+    SetTargetFPS(100);
+
+    while (!WindowShouldClose()) {
+        // --- 输入处理（仅在网格区域有效）---
+        if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
             Vector2 mousePos = GetMousePosition();
-            int x = mousePos.x / cellSize;
-            int y = mousePos.y / cellSize;
-            grid[y][x] = !grid[y][x]; // 切换细胞状态
+            if (mousePos.x >= 0 && mousePos.x < gridAreaWidth && mousePos.y >= 0 && mousePos.y < screenHeight) {
+                int x = mousePos.x / cellSize;
+                int y = mousePos.y / cellSize;
+                if (x >= 0 && x < gridWidth && y >= 0 && y < gridHeight) {
+                    grid[y][x] = !grid[y][x];
+                }
+            }
         }
-        if (IsKeyPressed(KEY_SPACE)){
-            isRunning = !isRunning; // 切换游戏状态
+
+        if (IsKeyPressed(KEY_SPACE)) {
+            isRunning = !isRunning;
         }
-        //----------------------------
-        // Gui控制台
-        //----------------------------
-        GuiPanel((Rectangle){1000, 10, 1200, 100}, "Controls");
-        if (GuiButton((Rectangle){1020, 40, 180, 30}, isRunning ? "Pause (Space)" : "Start (Space)")){
-            isRunning = !isRunning; // 切换游戏状态
+
+        // 细胞大小改变时重置网格
+        if (cellSize != lastCellSize) {
+            lastCellSize = cellSize;
+            gridWidth = gridAreaWidth / cellSize;
+            gridHeight = screenHeight / cellSize;
+            grid.assign(gridHeight, vector<bool>(gridWidth, false));
         }
-        // 切换网格大小
-        GuiSliderBar((Rectangle){ 1020, 80, 120, 20}, "Grid Size", TextFormat("%.2f", (float)cellSize), &cellSize, 1, 100);
- 
-        //----------------------------
-        // 更新游戏状态
-        //----------------------------
-        if (isRunning){
-            vector<vector<bool>> newGrid = grid; // 创建一个新的网格来存储下一代状态
-            for (int y = 0; y < gridHeight; y++){
-                for (int x = 0; x < gridWidth; x++){
-                    int liveneighbours = 0;
-                    for (int j = -1; j <= 1; j++){
-                        for (int i = -1; i <= 1; i++){
-                            if (i == 0 && j == 0) continue; // 跳过当前细胞
+
+        // --- GUI 控制台（独立右侧区域）---
+        // 注意：不要在半透明矩形之后绘制GUI，否则会被覆盖。
+        // 我们这里先绘制GUI，然后不需要额外覆盖矩形。
+        GuiPanel((Rectangle){panelX, panelY, panelWidth, panelHeight}, "Game Controls");
+
+        if (GuiButton((Rectangle){panelX + 10, panelY + 40, panelWidth - 20, 30},
+                      isRunning ? "Pause (Space)" : "Start (Space)"))
+        {
+            isRunning = !isRunning;
+        }
+
+        GuiSliderBar((Rectangle){panelX + 10, panelY + 80, panelWidth - 120, 20},
+                     "Cell Size", TextFormat("%.2f", cellSize), &cellSize, 1, 50);
+        GuiSliderBar((Rectangle){panelX + 10, panelY + 110, panelWidth - 120, 20},
+             "Update Delay", TextFormat("%.0f ms", updateDelay), &updateDelay, 0, 1000);
+        // --- 生命演化逻辑 ---
+        // 逻辑：如果一个细胞是活的，且周围活细胞数小于2或大于3，则它死去；如果一个细胞是死的，且周围活细胞数正好为3，则它复活。
+        if (isRunning && (GetTime() - lastUpdateTime) >= updateDelay / 1000.0f) {
+            lastUpdateTime = GetTime();
+            vector<vector<bool>> newGrid = grid;
+            for (int y = 0; y < gridHeight; y++) {
+                for (int x = 0; x < gridWidth; x++) {
+                    int liveNeighbours = 0;
+                    for (int j = -1; j <= 1; j++) {
+                        for (int i = -1; i <= 1; i++) {
+                            if (i == 0 && j == 0) continue;
                             int nx = x + i;
                             int ny = y + j;
-                            if (nx >= 0 && nx < gridWidth && ny >= 0 && ny < gridHeight){
-                                if (grid[ny][nx]) liveneighbours++; // 统计活邻居数量
+                            if (nx >= 0 && nx < gridWidth && ny >= 0 && ny < gridHeight) {
+                                if (grid[ny][nx]) liveNeighbours++;
                             }
                         }
                     }
-                    // 根据生命游戏的规则更新细胞状态
-                    if (grid[y][x]){
-                        if (liveneighbours < 2 || liveneighbours > 3) newGrid[y][x] = false; // 死亡
+                    if (grid[y][x]) {
+                        if (liveNeighbours < 2 || liveNeighbours > 3)
+                            newGrid[y][x] = false;
                     } else {
-                        if (liveneighbours == 3) newGrid[y][x] = true; // 复活
+                        if (liveNeighbours == 3)
+                            newGrid[y][x] = true;
                     }
                 }
             }
-            grid = newGrid; // 更新网格
+            grid = newGrid;
         }
 
-        //----------------------------
-        // 绘制
-        //----------------------------
+        // --- 绘制 ---
         BeginDrawing();
         ClearBackground(RAYWHITE);
-        //----------------------------
-        // 绘制网格线
-        for (int y = 0; y < gridHeight; y++){
-            DrawLine(0, y * cellSize, screenWidth, y * cellSize, LIGHTGRAY);
+
+        // 绘制网格线（仅网格区域）
+        for (int y = 0; y <= gridHeight; y++) {
+            DrawLine(0, y * cellSize, gridAreaWidth, y * cellSize, LIGHTGRAY);
         }
-        for (int x = 0; x < gridWidth; x++){
+        for (int x = 0; x <= gridWidth; x++) {
             DrawLine(x * cellSize, 0, x * cellSize, screenHeight, LIGHTGRAY);
         }
-        //----------------------------
-        for (int y = 0; y < gridHeight; y++){
-            for (int x = 0; x < gridWidth; x++){
-                if (grid[y][x]){
-                    DrawRectangle(x * cellSize, y * cellSize, cellSize - 1, cellSize - 1, BLACK); // 绘制活细胞
+
+        // 绘制活细胞
+        for (int y = 0; y < gridHeight; y++) {
+            for (int x = 0; x < gridWidth; x++) {
+                if (grid[y][x]) {
+                    DrawRectangle(x * cellSize, y * cellSize, cellSize - 1, cellSize - 1, BLACK);
                 }
             }
         }
+
+        // 在网格和面板之间画一条分隔线，使界面更清晰
+        DrawLine(gridAreaWidth, 0, gridAreaWidth, screenHeight, DARKGRAY);
+  
         EndDrawing();
     }
+
     CloseWindow();
     return 0;
 }
